@@ -199,7 +199,7 @@ pub fn render_hooks_config_menu(
             let selected = i == state.selected;
             let row_style = if selected {
                 Style::default()
-                    .fg(Color::Rgb(215, 119, 87))
+                    .fg(Color::Rgb(233, 30, 99))
                     .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(Color::White)

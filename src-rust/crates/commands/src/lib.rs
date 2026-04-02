@@ -28,6 +28,8 @@ pub struct CommandContext {
     /// Remote session URL set when a bridge connection is active.
     pub remote_session_url: Option<String>,
     // Note: config already contains hooks, mcp_servers, etc.
+    /// Live MCP manager — present when servers are connected.
+    pub mcp_manager: Option<Arc<cc_mcp::McpManager>>,
 }
 
 /// Result of running a slash command.
@@ -1726,13 +1728,16 @@ impl SlashCommand for McpCommand {
     fn name(&self) -> &str { "mcp" }
     fn description(&self) -> &str { "Show MCP server status and configuration" }
     fn help(&self) -> &str {
-        "Usage: /mcp [list|status|add|remove]\n\n\
+        "Usage: /mcp [list|status|resources|prompts|get-prompt <server> <prompt> [key=val ...]]\n\n\
          Manages Model Context Protocol (MCP) servers.\n\
          MCP servers extend Claude with external tools and resources.\n\n\
          Subcommands:\n\
            /mcp              — list configured servers (same as /mcp list)\n\
            /mcp list         — list all configured MCP servers\n\
-           /mcp status       — show server connection status\n\n\
+           /mcp status       — show server connection status\n\
+           /mcp resources    — list all resources from connected servers\n\
+           /mcp prompts      — list all prompt templates from connected servers\n\
+           /mcp get-prompt <server> <prompt> [key=value ...]  — expand a prompt template\n\n\
          To add/remove MCP servers, edit ~/.claude/settings.json\n\
          under the 'mcpServers' key, or use the MCP CLI.\n\
          Docs: https://docs.anthropic.com/claude-code/mcp"
@@ -1740,6 +1745,15 @@ impl SlashCommand for McpCommand {
 
     async fn execute(&self, args: &str, ctx: &mut CommandContext) -> CommandResult {
         let sub = args.trim();
+
+        // Delegate live-server subcommands (resources/prompts/get-prompt) to the async helper.
+        if matches!(sub.split_whitespace().next(), Some("resources") | Some("prompts") | Some("get-prompt")) {
+            if let Some(result) = McpCommand::handle_live_subcommand(sub, ctx).await {
+                return result;
+            }
+            // Manager not available — fall through to show configured servers
+        }
+
         if ctx.config.mcp_servers.is_empty() {
             return CommandResult::Message(
                 "No MCP servers configured.\n\n\
@@ -1810,8 +1824,108 @@ impl SlashCommand for McpCommand {
                 cmd = cmd_display,
             ));
         }
-        output.push_str("\nUse /mcp status to see connection status.");
+        output.push_str("\nUse /mcp status to see connection status.\nUse /mcp resources or /mcp prompts to list live MCP content.");
         CommandResult::Message(output)
+    }
+}
+
+// Helper: handle async /mcp resources|prompts|get-prompt subcommands via a separate trait impl.
+// These need the mcp_manager from CommandContext.
+impl McpCommand {
+    async fn handle_live_subcommand(sub: &str, ctx: &CommandContext) -> Option<CommandResult> {
+        let manager = ctx.mcp_manager.as_ref()?;
+        let parts: Vec<&str> = sub.splitn(4, ' ').collect();
+        match parts[0] {
+            "resources" => {
+                let filter = parts.get(1).copied();
+                let resources = manager.list_all_resources(filter).await;
+                if resources.is_empty() {
+                    return Some(CommandResult::Message(
+                        "No resources available (servers may not support resources/list).".to_string()
+                    ));
+                }
+                let mut out = format!("MCP Resources ({})\n──────────────────\n", resources.len());
+                for r in &resources {
+                    let server = r.get("server").and_then(|v| v.as_str()).unwrap_or("?");
+                    let uri = r.get("uri").and_then(|v| v.as_str()).unwrap_or("?");
+                    let name = r.get("name").and_then(|v| v.as_str()).unwrap_or(uri);
+                    let desc = r.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                    if desc.is_empty() {
+                        out.push_str(&format!("  [{server}] {name}\n    {uri}\n"));
+                    } else {
+                        out.push_str(&format!("  [{server}] {name} — {desc}\n    {uri}\n"));
+                    }
+                }
+                Some(CommandResult::Message(out))
+            }
+            "prompts" => {
+                let filter = parts.get(1).copied();
+                let prompts = manager.list_all_prompts(filter).await;
+                if prompts.is_empty() {
+                    return Some(CommandResult::Message(
+                        "No prompt templates available (servers may not support prompts/list).".to_string()
+                    ));
+                }
+                let mut out = format!("MCP Prompt Templates ({})\n─────────────────────────\n", prompts.len());
+                for p in &prompts {
+                    let server = p.get("server").and_then(|v| v.as_str()).unwrap_or("?");
+                    let name = p.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+                    let desc = p.get("description").and_then(|v| v.as_str()).unwrap_or("");
+                    let args: Vec<String> = p.get("arguments")
+                        .and_then(|a| a.as_array())
+                        .map(|arr| arr.iter()
+                            .filter_map(|a| a.get("name").and_then(|n| n.as_str()).map(|s| s.to_string()))
+                            .collect())
+                        .unwrap_or_default();
+                    let args_display = if args.is_empty() { String::new() } else { format!(" ({})", args.join(", ")) };
+                    if desc.is_empty() {
+                        out.push_str(&format!("  [{server}] {name}{args_display}\n"));
+                    } else {
+                        out.push_str(&format!("  [{server}] {name}{args_display} — {desc}\n"));
+                    }
+                }
+                out.push_str("\nUse: /mcp get-prompt <server> <prompt> [key=value ...]\n");
+                Some(CommandResult::Message(out))
+            }
+            "get-prompt" => {
+                // /mcp get-prompt <server> <prompt-name> [key=val key2=val2 ...]
+                let server = match parts.get(1) {
+                    Some(s) => *s,
+                    None => return Some(CommandResult::Error("Usage: /mcp get-prompt <server> <prompt> [key=value ...]".to_string())),
+                };
+                let prompt_name = match parts.get(2) {
+                    Some(p) => *p,
+                    None => return Some(CommandResult::Error("Usage: /mcp get-prompt <server> <prompt> [key=value ...]".to_string())),
+                };
+                let mut args: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+                if let Some(kv_str) = parts.get(3) {
+                    for kv in kv_str.split_whitespace() {
+                        if let Some((k, v)) = kv.split_once('=') {
+                            args.insert(k.to_string(), v.to_string());
+                        }
+                    }
+                }
+                let arguments = if args.is_empty() { None } else { Some(args) };
+                match manager.get_prompt(server, prompt_name, arguments).await {
+                    Ok(result) => {
+                        let mut injected = String::new();
+                        for msg in &result.messages {
+                            let text = match &msg.content {
+                                cc_mcp::PromptMessageContent::Text { text } => text.clone(),
+                                cc_mcp::PromptMessageContent::Image { .. } => "[image]".to_string(),
+                                cc_mcp::PromptMessageContent::Resource { resource } => {
+                                    resource.to_string()
+                                }
+                            };
+                            injected.push_str(&format!("[{}]: {}\n", msg.role, text));
+                        }
+                        Some(CommandResult::UserMessage(injected.trim().to_string()))
+                    }
+                    Err(e) => Some(CommandResult::Error(format!("Failed to get prompt '{}' from '{}': {}", prompt_name, server, e))),
+                }
+            }
+            _ => None,
+        }
     }
 }
 

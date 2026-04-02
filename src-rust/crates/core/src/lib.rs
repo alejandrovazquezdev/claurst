@@ -470,6 +470,9 @@ pub mod config {
         pub project_dir: Option<PathBuf>,
         #[serde(default)]
         pub workspace_paths: Vec<PathBuf>,
+        /// Additional directories granted access via --add-dir.
+        #[serde(default)]
+        pub additional_dirs: Vec<PathBuf>,
         /// Event hooks: map of event → list of hook commands.
         #[serde(default)]
         pub hooks: HashMap<HookEvent, Vec<HookEntry>>,
@@ -541,6 +544,13 @@ pub mod config {
         /// Names of plugins that have been explicitly disabled by the user.
         #[serde(default, rename = "disabledPlugins")]
         pub disabled_plugins: std::collections::HashSet<String>,
+        /// Whether the user has completed the first-launch onboarding flow.
+        /// Mirrors TS `hasAcknowledgedSafetyNotice` / `hasCompletedOnboarding`.
+        #[serde(default, rename = "hasCompletedOnboarding")]
+        pub has_completed_onboarding: bool,
+        /// App version at last launch — used to detect upgrades and show release notes.
+        #[serde(default, rename = "lastSeenVersion")]
+        pub last_seen_version: Option<String>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -828,7 +838,7 @@ pub mod context {
             self
         }
 
-        /// System context (git status, platform, etc.)
+        /// System context (git status, platform, IDE, etc.)
         pub async fn build_system_context(&self) -> String {
             let mut parts = vec![];
 
@@ -841,6 +851,12 @@ pub mod context {
 
             if let Some(git_context) = self.get_git_context().await {
                 parts.push(git_context);
+            }
+
+            // IDE context — injected when an IDE extension is connected.
+            // Mirrors TS getContextAttachments() → IdeContext attachment.
+            if let Some(ide_ctx) = crate::attachments::get_ide_context() {
+                parts.push(format!("# IDE Context\n{}", ide_ctx));
             }
 
             parts.join("\n\n")

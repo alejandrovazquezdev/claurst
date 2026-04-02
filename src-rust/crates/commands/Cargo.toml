@@ -8,6 +8,7 @@ cc-core = { workspace = true }
 cc-api = { workspace = true }
 cc-tools = { workspace = true }
 cc-query = { workspace = true }
+cc-mcp = { workspace = true }
 cc-tui = { workspace = true }
 cc-plugins = { workspace = true }
 tokio = { workspace = true }

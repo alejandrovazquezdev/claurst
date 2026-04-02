@@ -1,9 +1,11 @@
 # TypeScript → Rust 1:1 Parity Gap Analysis
 
 > Generated: 2026-04-02
-> **Status as of Batch 15 (2026-04-02): All P0 and P1 gaps implemented. 929 tests, 0 failures.**
+> **Status as of Batch 16 (2026-04-02): 978 tests, 0 failures.**
 >
-> Items marked ~~done~~ below were completed in Batch 15. Remaining open items are P2 only.
+> Batch 16 added: Vim VisualLine mode (V), Command-line mode (:), in-prompt search (/+n/N),
+> CLAUDE_STATUS_COMMAND external status polling, InvalidConfigDialog/InvalidSettingsDialog.
+> Items marked ~~done~~ below were completed in earlier batches. Remaining open items are P2.
 
 > Rust state as of Batch 14 (801 tests, all passing).
 > Status legend: **done** · **partial** · **missing**
@@ -179,14 +181,14 @@ Add a second intercept pass in `lib.rs` event handling (before passing to query)
 | Undo (u) | **done** | Batch 10 |
 | Visual mode (v + y/d/c) | **done** | Batch 10 |
 | gg / G | **done** | Batch 10 |
-| Registers (`"ay`, `"ap`) | **missing** | TS vim has named register support |
-| Macros (`qq`, `q`, `@q`) | **missing** | TS vim has macro record/replay |
-| Marks (`ma`, `'a`) | **missing** | TS vim has mark set/jump |
-| Command-line mode (`:`) | **missing** | TS vim has `:` command mode |
-| Repeat (`.`) | **missing** | TS vim has dot-repeat |
-| Search within prompt (`/`, `n`, `N`) | **missing** | In-prompt search |
-| Visual line mode (`V`) | **missing** | |
-| Visual block mode (`Ctrl+V`) | **missing** | |
+| Registers (`"ay`, `"ap`) | **done** | Batch 15 |
+| Macros (`qq`, `q`, `@q`) | **done** | Batch 15 |
+| Marks (`ma`, `'a`) | **done** | Batch 15 |
+| Command-line mode (`:`) | **done** | Batch 16 (`:q`, `:wq`, `:noh`, `:set vim/novim`) |
+| Repeat (`.`) | **done** | Batch 15 |
+| Search within prompt (`/`, `n`, `N`) | **done** | Batch 16 |
+| Visual line mode (`V`) | **done** | Batch 16 |
+| Visual block mode (`Ctrl+V`) | **missing** | P2 |
 
 ### 3.3 Paste / image input
 
@@ -221,8 +223,8 @@ Done: streaming spinner · context window `{used}k/{total}k ({pct}%)` color-code
 
 | Feature | Priority | Notes |
 |---|---|---|
-| External command execution (`executeStatusLineCommand()`) | P1 | TS runs a configurable external command; output is ANSI-rendered in the status bar. Controlled by `CLAUDE_STATUS_COMMAND` env var. |
-| Debounced updates (500ms) | P1 | Rust re-renders every frame; TS debounces status command at 500ms. Rust should rate-limit the status command execution if implemented. |
+| External command execution (`executeStatusLineCommand()`) | **done** | Batch 16 — `CLAUDE_STATUS_COMMAND` env var polled every 500ms via background task; output → `app.status_line_override` |
+| Debounced updates (500ms) | **done** | Batch 16 — 500ms sleep in polling task |
 | Left-side model name display | P2 | TS shows current model name in left side of status bar |
 | Token budget warning color | **partial** | Done (color-coded %) but TS also shows "auto-compact" callout in amber when approaching limit |
 
@@ -242,8 +244,8 @@ render.rs: parse ANSI in status_line_override and render in left/right status zo
 
 | TS Dialog | Priority | Description |
 |---|---|---|
-| `InvalidConfigDialog` | P0 | Shown on startup when `settings.json` or `CLAUDE.md` is malformed; blocks use until dismissed or fixed |
-| `InvalidSettingsDialog` | P0 | Variant for specific settings validation failures |
+| `InvalidConfigDialog` | **done** | Batch 16 — `invalid_config_dialog.rs`, wired into App + render pipeline |
+| `InvalidSettingsDialog` | **done** | Batch 16 — same module (`InvalidConfigKind::Settings` variant) |
 | `QuickOpenDialog` | P1 | Quick file opener (distinct from global search); navigable file list |
 | `HistorySearchDialog` | P1 | Full history search with timestamps and fuzzy scoring |
 | `ModelPickerDialog` | P1 | Pick from available models; shows pricing, capability badges |

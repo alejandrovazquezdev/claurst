@@ -29,6 +29,12 @@ use std::io::{self, Stdout};
 pub mod figures;
 /// Clawd robot mascot rendering.
 pub mod clawd;
+/// Context window and rate-limit visualization overlay (/context).
+pub mod context_viz;
+/// Export format picker dialog (/export).
+pub mod export_dialog;
+/// Clipboard image paste and Ctrl+V text paste.
+pub mod image_paste;
 /// Application state and main event loop.
 pub mod app;
 /// Input helpers: slash command parsing.
@@ -85,6 +91,12 @@ pub mod elicitation_dialog;
 pub mod model_picker;
 /// Session browser overlay (/session, /resume, /rename, /export).
 pub mod session_browser;
+/// Startup dialog for malformed settings.json or CLAUDE.md.
+pub mod invalid_config_dialog;
+/// Startup confirmation dialog for --dangerously-skip-permissions mode.
+pub mod bypass_permissions_dialog;
+/// First-launch onboarding / welcome dialog.
+pub mod onboarding_dialog;
 
 // ---------------------------------------------------------------------------
 // Public re-exports
@@ -107,6 +119,9 @@ pub use mcp_view::{McpViewState, McpServerView, McpToolView, McpViewStatus, rend
 pub use prompt_input::{PromptInputState, VimMode, VimPendingState, VimOperator, VimFindKind, InputMode, render_prompt_input, handle_paste, compute_typeahead};
 pub use model_picker::{ModelPickerState, ModelEntry, render_model_picker};
 pub use session_browser::{SessionBrowserState, SessionBrowserMode, SessionEntry, render_session_browser};
+pub use invalid_config_dialog::{InvalidConfigDialogState, InvalidConfigKind, render_invalid_config_dialog};
+pub use bypass_permissions_dialog::{BypassPermissionsDialogState, render_bypass_permissions_dialog};
+pub use onboarding_dialog::{OnboardingDialogState, render_onboarding_dialog};
 
 // ---------------------------------------------------------------------------
 // Terminal initialization / teardown helpers (public API)

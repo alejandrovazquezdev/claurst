@@ -355,6 +355,31 @@ pub mod types {
     pub struct ListPromptsResult {
         pub prompts: Vec<McpPrompt>,
     }
+
+    /// A single message returned by prompts/get.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct PromptMessage {
+        /// "user" or "assistant"
+        pub role: String,
+        pub content: PromptMessageContent,
+    }
+
+    /// Content inside a PromptMessage.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(tag = "type", rename_all = "lowercase")]
+    pub enum PromptMessageContent {
+        Text { text: String },
+        Image { data: String, mime_type: String },
+        Resource { resource: serde_json::Value },
+    }
+
+    /// prompts/get response.
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct GetPromptResult {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub description: Option<String>,
+        pub messages: Vec<PromptMessage>,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -612,6 +637,23 @@ pub mod client {
         pub async fn list_prompts(&self) -> anyhow::Result<Vec<McpPrompt>> {
             let result: ListPromptsResult = self.call("prompts/list", None).await?;
             Ok(result.prompts)
+        }
+
+        /// Invoke `prompts/get` with the given name and optional arguments map.
+        ///
+        /// Returns the expanded prompt messages that should be injected into the
+        /// conversation as-is (mirrors TS `getMCPPrompt`).
+        pub async fn get_prompt(
+            &self,
+            name: &str,
+            arguments: Option<std::collections::HashMap<String, String>>,
+        ) -> anyhow::Result<GetPromptResult> {
+            let mut params = serde_json::json!({ "name": name });
+            if let Some(args) = arguments {
+                params["arguments"] = serde_json::to_value(args)?;
+            }
+            let result: GetPromptResult = self.call("prompts/get", Some(params)).await?;
+            Ok(result)
         }
 
         /// Get all tools as `ToolDefinition` objects suitable for the API.
@@ -914,6 +956,54 @@ impl McpManager {
 
         let contents = client.read_resource(uri).await?;
         Ok(serde_json::to_value(&contents)?)
+    }
+
+    /// List all prompts from all (or a specific) connected server.
+    pub async fn list_all_prompts(
+        &self,
+        server_filter: Option<&str>,
+    ) -> Vec<serde_json::Value> {
+        let mut all = vec![];
+        for (name, client) in &self.clients {
+            if let Some(filter) = server_filter {
+                if name != filter {
+                    continue;
+                }
+            }
+            match client.list_prompts().await {
+                Ok(prompts) => {
+                    for p in prompts {
+                        all.push(serde_json::json!({
+                            "name": p.name,
+                            "description": p.description,
+                            "arguments": p.arguments,
+                            "server": name,
+                        }));
+                    }
+                }
+                Err(e) => {
+                    warn!(server = %name, error = %e, "Failed to list prompts");
+                }
+            }
+        }
+        all
+    }
+
+    /// Get an expanded prompt from a named server by prompt name and arguments.
+    ///
+    /// Returns the `GetPromptResult` with fully-rendered messages suitable for
+    /// injection into the conversation (mirrors TS `getMCPPrompt`).
+    pub async fn get_prompt(
+        &self,
+        server_name: &str,
+        prompt_name: &str,
+        arguments: Option<std::collections::HashMap<String, String>>,
+    ) -> anyhow::Result<GetPromptResult> {
+        let client = self
+            .clients
+            .get(server_name)
+            .ok_or_else(|| anyhow::anyhow!("MCP server '{}' not found or not connected", server_name))?;
+        client.get_prompt(prompt_name, arguments).await
     }
 }
 
