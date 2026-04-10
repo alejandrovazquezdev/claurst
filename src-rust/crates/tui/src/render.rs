@@ -37,7 +37,7 @@ use crate::messages::{
 use crate::notifications::render_notification_banner;
 use crate::overlays::{
     render_global_search, render_help_overlay, render_history_search_overlay, render_rewind_flow,
-    CLAURST_ACCENT,
+    CLAURST_ACCENT, CLAURST_PANEL_BG, CLAURST_TEXT,
 };
 use crate::plugin_views::render_plugin_hints;
 use crate::privacy_screen::render_privacy_screen;
@@ -380,10 +380,11 @@ pub fn render_app(frame: &mut Frame, app: &App) {
     let size = frame.area();
     app.last_selectable_area.set(size);
 
-    // Fill the entire frame with a black background so the terminal's default
-    // color (blue on Windows) doesn't bleed through cells not covered by widgets.
+    // Use the terminal's native background so the TUI feels transparent/blended
+    // rather than rendering a solid black overlay. Color::Reset inherits the
+    // terminal emulator's own background colour.
     frame.render_widget(
-        Block::default().style(Style::default().bg(Color::Black).fg(Color::White)),
+        Block::default().style(Style::default().bg(Color::Reset).fg(Color::Reset)),
         size,
     );
 
@@ -770,7 +771,7 @@ fn render_context_menu(frame: &mut Frame, app: &App) {
         let menu_block = Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
-            .style(Style::default().fg(Color::White).bg(Color::Rgb(24, 24, 30)))
+            .style(Style::default().fg(CLAURST_TEXT).bg(CLAURST_PANEL_BG))
             .border_style(Style::default().fg(CLAURST_ACCENT));
         menu_block.render(menu_area, frame.buffer_mut());
 
@@ -2580,7 +2581,7 @@ pub fn render_full_status_line(data: &StatusLineData, area: Rect, buf: &mut rata
 
     let line = Line::from(spans);
     Paragraph::new(line)
-        .style(Style::default().bg(Color::Black))
+        .style(Style::default().bg(Color::Reset))
         .render(area, buf);
 }
 
