@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   deploy:
+    # Only run on the canonical repo to avoid fork failures.
+    if: github.repository == 'Kuberwastaken/claurst'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
