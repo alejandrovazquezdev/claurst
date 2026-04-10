@@ -15,11 +15,13 @@ use unicode_width::UnicodeWidthStr;
 /// Static fallback accent used by render code that imports CLAURST_ACCENT directly.
 /// For theme-aware rendering prefer `theme_accent()` / `theme_panel_bg()` etc.
 pub const CLAURST_ACCENT: Color = Color::Rgb(233, 30, 99);
-pub const CLAURST_PANEL_BG: Color = Color::Rgb(20, 20, 28);
-pub const CLAURST_PANEL_BORDER: Color = Color::Rgb(72, 72, 80);
-pub const CLAURST_TEXT: Color = Color::Rgb(235, 235, 240);
-pub const CLAURST_MUTED: Color = Color::Rgb(110, 110, 118);
-pub const CLAURST_OVERLAY_BG: Color = Color::Rgb(10, 10, 14);
+// Panels are slightly elevated above the terminal background but not opaque black.
+// Using a softened deep-navy gives depth without covering the terminal entirely.
+pub const CLAURST_PANEL_BG: Color = Color::Rgb(28, 28, 40);
+pub const CLAURST_PANEL_BORDER: Color = Color::Rgb(80, 80, 96);
+pub const CLAURST_TEXT: Color = Color::Rgb(240, 240, 248);
+pub const CLAURST_MUTED: Color = Color::Rgb(128, 128, 140);
+pub const CLAURST_OVERLAY_BG: Color = Color::Rgb(16, 16, 24);
 
 // ---------------------------------------------------------------------------
 // Theme-aware color accessors (replaces hardcoded constants in render paths)
@@ -41,7 +43,7 @@ pub fn theme_panel_bg() -> Color {
         "nord" => Color::Rgb(46, 52, 64),
         "dracula" => Color::Rgb(40, 42, 54),
         "monokai" => Color::Rgb(39, 40, 34),
-        _ => Color::Rgb(20, 20, 28), // default / dark
+        _ => Color::Rgb(28, 28, 40), // default / dark
     }
 }
 
