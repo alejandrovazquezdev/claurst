@@ -2,8 +2,33 @@
 //
 // Provides color definitions for different themes, with special support for
 // Deuteranopia (red-green color blindness) using blue, yellow, and gray palettes.
+//
+// ACTIVE THEME — thread-local store so that any render function can query the
+// current palette without needing a theme parameter threaded through every call.
 
 use ratatui::style::Color;
+use std::cell::RefCell;
+
+thread_local! {
+    /// Name of the currently active theme.  Defaults to "default".
+    static ACTIVE_THEME: RefCell<String> = RefCell::new("default".to_string());
+}
+
+/// Set the globally active theme name for this thread.
+/// Call this in `App::apply_theme()` after persisting to disk.
+pub fn set_active_theme(name: &str) {
+    ACTIVE_THEME.with(|t| *t.borrow_mut() = name.to_string());
+}
+
+/// Read the currently active theme name for this thread.
+pub fn active_theme() -> String {
+    ACTIVE_THEME.with(|t| t.borrow().clone())
+}
+
+/// Return the `ColorPalette` for the currently active theme.
+pub fn current_palette() -> ColorPalette {
+    ColorPalette::for_theme(&active_theme())
+}
 
 /// Color palette for a specific theme.
 pub struct ColorPalette {

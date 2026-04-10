@@ -173,6 +173,7 @@ fn get_env_var_for_provider(id: &str) -> &'static str {
         "upstage" => "UPSTAGE_API_KEY",
         "stepfun" => "STEPFUN_API_KEY",
         "fireworks" => "FIREWORKS_API_KEY",
+        "itia" => "ITIA_API_KEY",
         _ => "API_KEY",
     }
 }
@@ -202,6 +203,7 @@ fn get_url_for_provider(id: &str) -> &'static str {
         "huggingface" => "huggingface.co/settings/tokens",
         "nvidia" => "build.nvidia.com",
         "venice" => "venice.ai/settings/api",
+        "itia" => "srt.devs-quarkz.com/itia",
         _ => "the provider's website",
     }
 }
@@ -216,6 +218,7 @@ fn provider_picker_items() -> Vec<SelectItem> {
         SelectItem { id: "openrouter".into(), title: "OpenRouter".into(), description: "100+ models with one key".into(), category: "Popular".into(), badge: None },
         SelectItem { id: "vercel".into(), title: "Vercel AI Gateway".into(), description: "Gateway for AI SDK models".into(), category: "Popular".into(), badge: None },
         SelectItem { id: "groq".into(), title: "Groq".into(), description: "Fast hosted inference".into(), category: "Popular".into(), badge: Some("FREE".into()) },
+        SelectItem { id: "itia".into(), title: "ITIA".into(), description: "dev-quarkz private on-premise AI".into(), category: "Popular".into(), badge: Some("PRIVATE".into()) },
         SelectItem { id: "ollama".into(), title: "Ollama".into(), description: "Run models locally".into(), category: "Popular".into(), badge: Some("LOCAL".into()) },
         SelectItem { id: "cerebras".into(), title: "Cerebras".into(), description: "Fast hosted inference".into(), category: "Other".into(), badge: Some("FREE".into()) },
         SelectItem { id: "sambanova".into(), title: "SambaNova".into(), description: "Fast hosted inference".into(), category: "Other".into(), badge: Some("FREE".into()) },
@@ -1096,7 +1099,7 @@ impl App {
         let config = config;
         let model_name = config.effective_model().to_string();
         let user_keybindings = UserKeybindings::load(&Settings::config_dir());
-        Self {
+        let app = Self {
             config,
             cost_tracker,
             messages: Vec::new(),
@@ -1295,7 +1298,19 @@ impl App {
             scroll_last_time: None,
             bash_prefix_allowlist: std::collections::HashSet::new(),
             update_available: None,
+        };
+        // Initialise the global render-thread theme from persisted settings.
+        {
+            let theme_name = match &app.config.theme {
+                Theme::Dark => "dark",
+                Theme::Light => "light",
+                Theme::Default => "default",
+                Theme::Deuteranopia => "deuteranopia",
+                Theme::Custom(name) => name.as_str(),
+            };
+            crate::theme_colors::set_active_theme(theme_name);
         }
+        app
     }
 
     /// Load token budget from environment or model defaults.
@@ -1685,7 +1700,7 @@ impl App {
         self.context_used_tokens = 0;
     }
 
-    /// Apply a theme by name, persisting it to config.
+    /// Apply a theme by name, persisting it to config and activating it for rendering.
     pub fn apply_theme(&mut self, theme_name: &str) {
         let theme = match theme_name {
             "dark" => Theme::Dark,
@@ -1699,6 +1714,8 @@ impl App {
         let mut settings = Settings::load_sync().unwrap_or_default();
         settings.config.theme = self.config.theme.clone();
         let _ = settings.save_sync();
+        // Activate for real-time rendering
+        crate::theme_colors::set_active_theme(theme_name);
         self.status_message = Some(format!("Theme set to: {}", theme_name));
     }
 

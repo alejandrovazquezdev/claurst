@@ -12,12 +12,68 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph, Widget};
 use ratatui::Frame;
 use unicode_width::UnicodeWidthStr;
 
+/// Static fallback accent used by render code that imports CLAURST_ACCENT directly.
+/// For theme-aware rendering prefer `theme_accent()` / `theme_panel_bg()` etc.
 pub const CLAURST_ACCENT: Color = Color::Rgb(233, 30, 99);
 pub const CLAURST_PANEL_BG: Color = Color::Rgb(20, 20, 28);
 pub const CLAURST_PANEL_BORDER: Color = Color::Rgb(72, 72, 80);
 pub const CLAURST_TEXT: Color = Color::Rgb(235, 235, 240);
 pub const CLAURST_MUTED: Color = Color::Rgb(110, 110, 118);
 pub const CLAURST_OVERLAY_BG: Color = Color::Rgb(10, 10, 14);
+
+// ---------------------------------------------------------------------------
+// Theme-aware color accessors (replaces hardcoded constants in render paths)
+// ---------------------------------------------------------------------------
+
+use crate::theme_colors::{current_palette, active_theme};
+
+/// Primary accent color for the active theme.
+pub fn theme_accent() -> Color {
+    current_palette().accent
+}
+
+/// Panel background for the active theme.
+pub fn theme_panel_bg() -> Color {
+    let theme = active_theme();
+    match theme.as_str() {
+        "light" => Color::Rgb(240, 240, 245),
+        "solarized" => Color::Rgb(0, 43, 54),
+        "nord" => Color::Rgb(46, 52, 64),
+        "dracula" => Color::Rgb(40, 42, 54),
+        "monokai" => Color::Rgb(39, 40, 34),
+        _ => Color::Rgb(20, 20, 28), // default / dark
+    }
+}
+
+/// Main text color for the active theme.
+pub fn theme_text() -> Color {
+    let palette = current_palette();
+    // text_light is for dark BGs; text_dark is for light BGs
+    let theme = active_theme();
+    match theme.as_str() {
+        "light" => palette.text_dark,
+        _ => palette.text_light,
+    }
+}
+
+/// Muted/secondary text color for the active theme.
+pub fn theme_muted() -> Color {
+    current_palette().disabled
+}
+
+/// Border color for the active theme.
+pub fn theme_border() -> Color {
+    current_palette().border
+}
+
+/// Overlay/dimming background for the active theme.
+pub fn theme_overlay_bg() -> Color {
+    let theme = active_theme();
+    match theme.as_str() {
+        "light" => Color::Rgb(200, 200, 210),
+        _ => Color::Rgb(10, 10, 14),
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Geometry helper (shared)
@@ -46,11 +102,13 @@ pub fn render_dark_overlay(frame: &mut Frame, area: Rect) {
 }
 
 pub fn render_dark_overlay_buf(buf: &mut Buffer, area: Rect) {
+    let overlay_bg = theme_overlay_bg();
+    let muted = theme_muted();
     for y in area.y..area.y + area.height {
         for x in area.x..area.x + area.width {
             if let Some(cell) = buf.cell_mut((x, y)) {
-                cell.set_bg(CLAURST_OVERLAY_BG);
-                cell.set_fg(CLAURST_MUTED);
+                cell.set_bg(overlay_bg);
+                cell.set_fg(muted);
             }
         }
     }
@@ -62,12 +120,14 @@ pub fn render_dialog_bg(frame: &mut Frame, area: Rect) {
 }
 
 pub fn render_dialog_bg_buf(buf: &mut Buffer, area: Rect) {
+    let panel_bg = theme_panel_bg();
+    let text = theme_text();
     for y in area.y..area.y + area.height {
         for x in area.x..area.x + area.width {
             if let Some(cell) = buf.cell_mut((x, y)) {
                 cell.set_char(' ');
-                cell.set_bg(CLAURST_PANEL_BG);
-                cell.set_fg(CLAURST_TEXT);
+                cell.set_bg(panel_bg);
+                cell.set_fg(text);
             }
         }
     }

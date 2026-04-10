@@ -67,6 +67,7 @@ fn provider_from_key(provider_id: &str, key: String) -> Option<Arc<dyn LlmProvid
         "upstage" => Some(Arc::new(p::upstage().with_api_key(key))),
         "stepfun" => Some(Arc::new(p::stepfun().with_api_key(key))),
         "fireworks" => Some(Arc::new(p::fireworks().with_api_key(key))),
+        "itia" => Some(Arc::new(p::itia().with_api_key(key))),
         _ => None,
     }
 }
@@ -401,6 +402,9 @@ impl ProviderRegistry {
         }
         if std::env::var("FIREWORKS_API_KEY").map(|v| !v.is_empty()).unwrap_or(false) {
             self.register(Arc::new(p::fireworks()));
+        }
+        if std::env::var("ITIA_API_KEY").map(|v| !v.is_empty()).unwrap_or(false) {
+            self.register(Arc::new(p::itia()));
         }
         self
     }

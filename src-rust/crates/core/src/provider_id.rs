@@ -71,6 +71,7 @@ impl ProviderId {
     pub const NOVITA: &'static str = "novita";
     pub const MINIMAX: &'static str = "minimax";
     pub const CODEX: &'static str = "codex";
+    pub const ITIA: &'static str = "itia";
 }
 
 impl fmt::Display for ProviderId {

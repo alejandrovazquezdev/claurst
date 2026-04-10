@@ -410,3 +410,18 @@ pub fn fireworks() -> OpenAiCompatProvider {
     )
     .with_api_key(key)
 }
+
+/// ITIA — dev-quarkz private on-premise AI platform (OpenAI-compatible).
+/// Reads `ITIA_API_KEY`.  The base URL defaults to the production endpoint;
+/// override with `ITIA_BASE_URL` if you run your own instance.
+pub fn itia() -> OpenAiCompatProvider {
+    let key = std::env::var("ITIA_API_KEY").unwrap_or_default();
+    let base_url = std::env::var("ITIA_BASE_URL")
+        .unwrap_or_else(|_| "https://srt.devs-quarkz.com/itia/v1".to_string());
+    OpenAiCompatProvider::new(ProviderId::ITIA, "ITIA", base_url)
+        .with_api_key(key)
+        .with_quirks(ProviderQuirks {
+            overflow_patterns: vec!["context length exceeded".to_string()],
+            ..Default::default()
+        })
+}
